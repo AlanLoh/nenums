@@ -32,5 +32,11 @@ class MS():
     def __init__(self):
         return
 
-    def 
+    def emptyMS(self):
+        """ Create an empty Measurement Set with the `makems` executable
+            - Write a parset file 'makems.cfg': dictionnary of MS properties
+            - Launch `makems`
+
+        """
+        return
 

@@ -20,7 +20,7 @@ __version__ = '0.0.1'
 __maintainer__ = 'Alan Loh'
 __email__ = 'alan.loh@obspm.fr'
 __status__ = 'WIP'
-__all__ = ['']
+__all__ = ['nancay', 'altaz2radec']
 
 
 def nancay():

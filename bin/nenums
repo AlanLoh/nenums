@@ -1,0 +1,16 @@
+#! /usr/bin/python3.5
+# -*- coding: utf-8 -*-
+
+""" Command line Python3 script to convert a XST file
+    into a Measurement Set 
+"""
+
+import argparse
+from nenums import XST
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-x', '--xst', type=str, help="XST file", required=True)
+    args = parser.parse_args()
+
+    xst = XST(xstfile=args.xst)
