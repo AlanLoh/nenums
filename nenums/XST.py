@@ -7,6 +7,7 @@ Class to read and load XST data
 """
 
 import os
+import numpy as np
 
 from astropy.io import fits
 from astropy.time import Time
@@ -24,7 +25,7 @@ __status__ = 'WIP'
 __all__ = ['XST']
 
 
-class XST()
+class XST():
     def __init__(self, xstfile):
         self.xstfile = xstfile
 
@@ -68,6 +69,7 @@ class XST()
     def convertMS(self):
         """
         """
+        print("ca marche")
         return
 
     # ================================================================= #
