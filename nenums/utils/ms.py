@@ -17,7 +17,9 @@ try:
 except:
     print("\n\t=== WARNING ===")
 
-from .astro import altaz2radec
+# from .astro import altaz2radec
+from astro import altaz2radec, lightSpeed
+
 
 __author__ = 'Alan Loh'
 __copyright__ = 'Copyright 2018, nenums'
@@ -26,27 +28,50 @@ __version__ = '0.0.1'
 __maintainer__ = 'Alan Loh'
 __email__ = 'alan.loh@obspm.fr'
 __status__ = 'Production'
-__all__ = ['emptyMS',
+__all__ = [ 'antTable',
+            'emptyMS',
             'addInfos',
             'addFreq',
+            'addTime',
+            'addDescId',
             'addData',
             'zenithUVW',
             'rephaseData',
+            'addPointing',
             'updateHist']
+
+
+# =================================================================================== #
+# ------------------------------------ antTable ------------------------------------- #
+# =================================================================================== #
+def antTable(msname, miniarrays):
+    """ Create the ANTENNA table for a Measurement Set
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **miniarrays** : np.ndarray
+            Mini-Arrays from a XST file (ext: 1, key: 'noMROn')
+    """
+    #self._checkAnt()
+    tabname = os.path.join( os.path.dirname(msname), 'ANTENNA')
+    strmas  = ",".join("'MR{}'".format(i) for i in sorted( np.squeeze(miniarrays)) ) # str list of MAs
+    command = 'python /cep/lofar/nenupy/makeant.py {} "[{}]"'.format(tabname, strmas)
+    os.system(command)
+    return
 
 
 # =================================================================================== #
 # ------------------------------------- emptyMS ------------------------------------- #
 # =================================================================================== #
-def emptyMS(msname, outpath, start, dt, bwidth, sbpertime, subbands):
+def emptyMS(msname, start, dt, bwidth, xstsbbands):
     """ Create an empty *Measurement Set* designed for NenuFAR XST observations.
 
         Parameters
         ----------
         * **msname** : str
             Name of the Measurement Set
-        * **outpath** : str
-            Path to write the Measurmeent Set
         * **start** : (str, Time)
             Beginning of the observation. XST cross-correlations are computed at the local zenith.
             It helps initializing the tracked RA / Dec.
@@ -56,10 +81,16 @@ def emptyMS(msname, outpath, start, dt, bwidth, sbpertime, subbands):
             Spectral bandwidth in Hz
         * **sbpertime** : int
             Number of sub-bands per unit of time
+        * **xstsbbands** : np.ndarray
+            Sub-bands of a XST file (ext: 7, key: 'xstsubband')
     """
     if os.path.isdir(msname):
         warnings.warn('Measurement Set {} already exist'.format(msname))
         return
+    outpath = os.path.dirname(os.path.abspath(msname))
+    if not os.path.isdir(outpath):
+        os.makedirs(outpath)
+
     if isinstance(start, str):
         try:
             start = Time(start)
@@ -77,14 +108,14 @@ def emptyMS(msname, outpath, start, dt, bwidth, sbpertime, subbands):
     parset_dict['Declination']        = {'id': 0, 'val': str(dec) + 'rad'}
     parset_dict['RightAscension']     = {'id': 0, 'val': str(ra)  + 'rad'}
     parset_dict['MSName']             = {'id': 0, 'val': msname}
-    parset_dict['NBands']             = {'id': 0, 'val': str(sbpertime)}
+    parset_dict['NBands']             = {'id': 0, 'val': str(xstsbbands.shape[1])}
     parset_dict['WriteAutoCorr']      = {'id': 0, 'val': 'T'}
-    parset_dict['StartFreq']          = {'id': 0, 'val': '[' + str(subbands[0, 0]*bwidth + bwidth/2.) + ']'}
+    parset_dict['StartFreq']          = {'id': 0, 'val': '[' + str(xstsbbands[0, 0]*bwidth + bwidth/2.) + ']'}
     parset_dict['StepFreq']           = {'id': 0, 'val': str(bwidth)}
-    parset_dict['NFrequencies']       = {'id': 0, 'val': str(subbands.size )}
+    parset_dict['NFrequencies']       = {'id': 0, 'val': str(np.unique(xstsbbands).size)}
     parset_dict['StartTime']          = {'id': 0, 'val': start.isot.replace('T', '/')}
     parset_dict['StepTime']           = {'id': 0, 'val': str(dt)}
-    parset_dict['NTimes']             = {'id': 0, 'val': str(subbands.shape[0])}
+    parset_dict['NTimes']             = {'id': 0, 'val': str(xstsbbands.shape[0])}
     parset_dict['VDSPath']            = {'id': 0, 'val': outpath}
     parset_dict['WriteImagerColumns'] = {'id': 0, 'val': "T"}
     
@@ -95,9 +126,9 @@ def emptyMS(msname, outpath, start, dt, bwidth, sbpertime, subbands):
     parset.close()
     
     # ------ Use makems to produce an empty MS ------# 
-    # os.system('makems {}'.format(os.path.join(self.savepath, 'makems.cfg')))
+    os.system('makems {}'.format(os.path.join(outpath, 'makems.cfg')))
         
-    # updateHist()
+    updateHist(message='Creation of the Measurement Set')
 
     return
 
@@ -106,28 +137,35 @@ def emptyMS(msname, outpath, start, dt, bwidth, sbpertime, subbands):
 # ------------------------------------ addInfos ------------------------------------- #
 # =================================================================================== #
 def addInfos(msname, xstheader):
-    """ 
+    """ Add to the Measurement Set
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **xstheader** : fits.header
+            XST file header (ext: 0)
     """
-    mstable   = table( os.path.join(msname, 'OBSERVATION'), ack=False, readonly=False)
-    observer  = mstable.getcol('OBSERVER')
-    project   = mstable.getcol('PROJECT')
-    schedule  = mstable.getcol('SCHEDULE_TYPE')
-    telescope = mstable.getcol('TELESCOPE_NAME')
+    isMS(msname)
 
-    observer[0]  = xstheader['CONTACT']
-    project[0]   = xstheader['OBJECT']
-    schedule[0]  = xstheader['INSTRUME']
-    telescope[0] = xstheader['INSTRUME']
+    mstable = table( os.path.join(msname, 'OBSERVATION'), ack=False, readonly=False)
+    obse    = mstable.getcol('OBSERVER')
+    proj    = mstable.getcol('PROJECT')
+    sche    = mstable.getcol('SCHEDULE_TYPE')
+    tele    = mstable.getcol('TELESCOPE_NAME')
 
-    mstable.putcol('OBSERVER', observer)
-    mstable.putcol('PROJECT', project)
-    mstable.putcol('SCHEDULE_TYPE', schedule)
-    mstable.putcol('TELESCOPE_NAME', telescope)
+    obse[0] = xstheader['CONTACT']
+    proj[0] = xstheader['OBJECT']
+    sche[0] = xstheader['INSTRUME']
+    tele[0] = xstheader['INSTRUME']
+
+    mstable.putcol('OBSERVER', obse)
+    mstable.putcol('PROJECT', proj)
+    mstable.putcol('SCHEDULE_TYPE', sche)
+    mstable.putcol('TELESCOPE_NAME', tele)
 
     mstable.flush()
     mstable.close()
-
-    del observer, project, schedule, telescope, mstable
 
     updateHist(message='Observation info added, from XST fits (version {})\
         created by software version {}.'.format(xstheader['VERSION'], xstheader['SOFTWARE']))
@@ -138,16 +176,94 @@ def addInfos(msname, xstheader):
 # =================================================================================== #
 # ------------------------------------- addFreq ------------------------------------- #
 # =================================================================================== #
-def addFreq():
+def addFreq(msname, xstsbbands):
+    """ Fill the frequency / spectral windows columns of the MS
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **xstsbbands** : np.ndarray
+            Sub-bands of a XST file (ext: 7, key: 'xstsubband')
     """
-    """
+    isMS(msname)
+
+    sbpertime = xstsbbands.shape[1]
+    subbands  = np.unique(xstsbbands)
+    sbsize    = subbands.size
+    spwtable  = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
+    bwidth    = spwtable.getcol('EFFECTIVE_BW')[0][0]
+    spwtable.close()
+
+    # ------ Expanding SPECTRAL_WINDOW subtable ------ #
+    mstable     = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+    mstable.addrows( nrows=sbsize - sbpertime ) # adding rows
+    mstable.flush()
+    mstable.close()
+    # ------ NAME column ------ #
+    mstable     = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+    spw_name    = mstable.getcol('NAME')
+    spw_name[:] = map(str, subbands)
+    mstable.putcol('NAME', spw_name) # writing "REAL" number of NenuFAR SB.
+    mstable.flush()
+    mstable.close()
+    # ------ CHAN_FREQ column ------ #
+    mstable     = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+    chan_freq   = np.array([np.array([subbands[i]*bwidth + bwidth/2.]) for i in np.arange(sbsize)])
+    mstable.putcol('CHAN_FREQ', chan_freq)
+    mstable.flush()
+    mstable.close()
+    # ------ REF_FREQUENCY column ------ #
+    mstable     = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+    ref_freq    = chan_freq
+    mstable.putcol('REF_FREQUENCY', ref_freq)
+    mstable.flush()
+    mstable.close()
+
+    # ------ Taking car of other unused columns ------ #
+    mstable     = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+    bw_table    = np.array([ np.array([bwidth]) for i in np.arange(sbsize) ]) #  np.repeat( np.array([self.bandwidth]), self.subbands.size)
+    dummy0      = np.zeros(sbsize)
+    dummy1      = np.ones(sbsize)
+    mstable.putcol('CHAN_WIDTH',      bw_table)
+    mstable.putcol('EFFECTIVE_BW',    bw_table)
+    mstable.putcol('RESOLUTION',      bw_table) 
+    mstable.putcol('TOTAL_BANDWIDTH', bw_table)
+    mstable.putcol('FLAG_ROW',        dummy0)
+    mstable.putcol('FREQ_GROUP',      dummy0)
+    mstable.putcol('IF_CONV_CHAIN',   dummy0)
+    mstable.putcol('NET_SIDEBAND',    dummy0)
+    mstable.putcol('NUM_CHAN',        dummy1)
+    mstable.putcol('MEAS_FREQ_REF',   dummy1*5)
+    mstable.flush()
+    mstable.close()
+    del spw_name, chan_freq, ref_freq, dummy0, dummy1, bw_table
+    del mstable
+
+    # ------ Expanding DATA_DESCRIPTION table ------ #
+    mstable    = table( os.path.join(msname, 'DATA_DESCRIPTION'), ack=False, readonly=False)
+    mstable.addrows( nrows=sbsize - sbpertime ) # adding rows
+    # ------ Inserting index to map DATA_DESC_ID index to the SPECTRAL_WINDOW index ------ #
+    spwid_table    = mstable.getcol('SPECTRAL_WINDOW_ID')
+    spwid_table[:] = np.arange(spwid_table.size)
+    mstable.putcol('SPECTRAL_WINDOW_ID', spwid_table)
+    dummy          = np.zeros(spwid_table.size) # create dummy array
+    # ------ Filling all columns ------- #
+    mstable.putcol('FLAG_ROW',           dummy)
+    mstable.putcol('POLARIZATION_ID',    dummy)
+    mstable.putcol('SPECTRAL_WINDOW_ID', spwid_table)
+    mstable.flush()
+    mstable.close()
+    del mstable, spwid_table, dummy
+    
+    updateHist(message='SPECTRAL_WINDOW and DATA_DESCRIPTION tables written.')
     return
 
 
 # =================================================================================== #
 # ------------------------------------- addTime ------------------------------------- #
 # =================================================================================== #
-def addTime(msname, xsttime, dt, sbpertime):
+def addTime(msname, xsttime):
     """ Fill the TIME column of the MS based on XST times (in Julian Days)
 
         Parameters
@@ -156,30 +272,27 @@ def addTime(msname, xsttime, dt, sbpertime):
             Name of the Measurement Set
         * **xsttime** : np.ndarray
             Time array from a XST file (in JD)
-        * **dt** : float
-            Time step of the XST observation, in seconds
-        * **sbpertime** : int
-            Number of sub-bands per unit of time
     """
-    _isMS(msname)
+    isMS(msname)
 
-    if not isinstance(sbpertime, (int, np.integer)):
-        raise TypeError("\t=== 'sbpertime' must be an integer ===")
-
-    antable = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
+    antable   = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
     baselines = int(antable.nrows() * (antable.nrows() - 1)/2. + antable.nrows())
     antable.close()
 
     mstable    = table(msname, ack=False, readonly=False)
+    mstime     = mstable.getcol('TIME')
+    umstime    = np.unique(mstime)
+    dt         = umstime[1] - umstime[0]
     time_table = Time(xsttime, format='jd').mjd * 3600. * 24. + (dt/2.) # MJD in sec (MS standards)
+    sbpertime  = int(mstime.size / baselines / time_table.size)
     time_table = np.repeat(time_table, baselines * sbpertime)
-    mstable.putcol('TIME', time_table)  
+    mstable.putcol('TIME', time_table) 
+    mstable.putcol('TIME_CENTROID', time_table)  
     mstable.flush()
     mstable.close()
 
     updateHist(message='TIME table filled.')
     return
-
 
 
 # =================================================================================== #
@@ -195,7 +308,7 @@ def addDescId(msname, xstsbbands):
         * **xstsbbands** : np.ndarray
             Sub-bands of a XST file (ext: 7, key: 'xstsubband')
     """
-    _isMS(msname)
+    isMS(msname)
 
     subbands = np.unique(xstsbbands)
 
@@ -224,6 +337,7 @@ def addDescId(msname, xstsbbands):
 # =================================================================================== #
 def addData(msname, builtma, xstdata):
     """ Fill the DATA column of the MS based on XST cross-correlations
+
         Parameters
         ----------
         * **msname** : str
@@ -233,14 +347,16 @@ def addData(msname, builtma, xstdata):
         * **xstdata** : np.ndarray
             Cross-correlations from the XST file (ext: 7, key: 'data')
     """
+    isMS(msname)
+
     antable   = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
     baselines = int(antable.nrows() * (antable.nrows() - 1)/2. + antable.nrows())
     antnames  = antable.getcol('NAME')
     usedmas   = np.array([ int(mr.replace('MR', '')) for mr in antnames ])
     antable.close()
 
-    mstable = table(msname, ack=False, readonly=False)
-    data_ms = mstable.getcol('DATA')
+    mstable    = table(msname, ack=False, readonly=False)
+    data_ms    = mstable.getcol('DATA')
     ant1_table = mstable.getcol('ANTENNA1')
     ant2_table = mstable.getcol('ANTENNA2')
 
@@ -248,33 +364,31 @@ def addData(msname, builtma, xstdata):
     for ant1 in builtma:
         for ant2 in builtma[ant1:]:
             if (ant1 not in usedmas) or (ant2 not in usedmas):
-                continue
-            else:
-                # Get the time x frequency x correl for the current baseline
-                baseline = np.sort( [ant1, ant2] )[::-1] # descending order
-                # These formulas were defined to fit the table of detail_FITS_00_05.pdf (kinda triangular series)
-                MA1X_MA2X = baseline[0]*2*(baseline[0]*2+1)/2       + 2*baseline[1]
-                MA1X_MA2Y = baseline[0]*2*(baseline[0]*2+1)/2+1     + 2*baseline[1] # it will be the same as next one for auto-corr
-                MA1Y_MA2X = (baseline[0]*2+1)*(baseline[0]*2+2)/2   + 2*baseline[1]
-                MA1Y_MA2Y = (baseline[0]*2+1)*(baseline[0]*2+2)/2+1 + 2*baseline[1]
-                index     = np.array([MA1X_MA2X, MA1X_MA2Y, MA1Y_MA2X, MA1Y_MA2Y])
-                data      = xstdata[:, :, index] # (time, frequency, 4)
-                if ant1 == ant2:
-                    # Index 1 (XY) is wrong for auto-correlations with the above algorithm,
-                    # doesn't matter, we replace the data by the conjugate of YX which exists anyway.
-                    data[:, :, 1] = np.conjugate(data[:, :, 2]) 
-                ant1_index   = np.where(usedmas == ant1)[0][0]
-                ant2_index   = np.where(usedmas == ant2)[0][0]
-                clever_index = (ant1_table == ant1_index) & (ant2_table == ant2_index)
-                data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2]))
-                # bar.next()
+                continue        
+            baseline = np.sort( [ant1, ant2] )[::-1] # descending order
+            # These formulas were defined to fit the table of detail_FITS_00_05.pdf (kinda triangular series)
+            MA1X_MA2X = baseline[0]*2    *(baseline[0]*2+1)/2   + 2*baseline[1]
+            MA1X_MA2Y = baseline[0]*2    *(baseline[0]*2+1)/2+1 + 2*baseline[1] # it will be the same as next one for auto-corr
+            MA1Y_MA2X = (baseline[0]*2+1)*(baseline[0]*2+2)/2   + 2*baseline[1]
+            MA1Y_MA2Y = (baseline[0]*2+1)*(baseline[0]*2+2)/2+1 + 2*baseline[1]
+            index     = np.array([MA1X_MA2X, MA1X_MA2Y, MA1Y_MA2X, MA1Y_MA2Y])
+            data      = xstdata[:, :, index] # (time, frequency, 4)
+            if ant1 == ant2:
+                # Index 1 (XY) is wrong for auto-correlations with the above algorithm,
+                # doesn't matter, we replace the data by the conjugate of YX which exists anyway.
+                data[:, :, 1] = np.conjugate(data[:, :, 2]) 
+            ant1_index   = np.where(usedmas == ant1)[0][0]
+            ant2_index   = np.where(usedmas == ant2)[0][0]
+            clever_index = (ant1_table == ant1_index) & (ant2_table == ant2_index)
+            data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2]))
+            # bar.next()
     # bar.finish()
 
     mstable.putcol('DATA', data_ms) 
     mstable.flush()
     mstable.close()
 
-    _checkSum()
+    checkSum(msname=msname)
 
     updateHist(message='DATA table filled with XST cross-correlations.')
     return
@@ -283,7 +397,7 @@ def addData(msname, builtma, xstdata):
 # =================================================================================== #
 # ----------------------------------- zenithUVW ------------------------------------- #
 # =================================================================================== #
-def zenithUVW(msname, sbpertime):
+def zenithUVW(msname):
     """ Re-compute the UVW table of the Measurement Set.
         `emptyMS()` automatically creates a UVW table as if initial RA Dec (zenith at start) was tracked.
         However, XST are cross-correlations fixed at the local zenith.
@@ -293,13 +407,13 @@ def zenithUVW(msname, sbpertime):
         ----------
         * **msname** : str
             Name of the Measurement Set
-        * **sbpertime** : int
-            Number of sub-bands per unit of time
     """
-    _isMS(msname)
+    isMS(msname)
 
-    if not isinstance(sbpertime, (int, np.integer)):
-        raise TypeError("\t=== 'sbpertime' must be an integer ===")
+    mstable    = table(msname, ack=False, readonly=True)
+    mstime     = mstable.getcol('TIME')
+    sbpertime  = int(mstime.size / baselines / time_table.size)
+    mstable.close()
     
     mstable = table(msname, ack=False, readonly=False)
     uvw     = mstable.getcol('UVW')
@@ -326,7 +440,102 @@ def zenithUVW(msname, sbpertime):
 # =================================================================================== #
 # ----------------------------------- rephaseData ----------------------------------- #
 # =================================================================================== #
-def rephaseData():
+def rephaseData(msname, xsttime, ra_center, dec_center):
+    """ XST Cross-Correlations are phased at the local zenith.
+        UVW are supposed to also be computed at the local zenith (`zenithUVW()`).
+        In order to produce a tracking observation, this function recompute UVW
+        and re-phase the visibilities towards a new phase center (`ra_center`, `dec_center`)
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **xsttime** : np.ndarray
+            Time array from a XST file (in JD)
+        * **ra** : float
+            Right-Ascension of the tracked target (in radians)
+        * **dec** : float
+            Declination of the tracked target (in radians)
+    """
+    isMS(msname)
+
+    # ------ Original phase centers ------ #
+    az_list  = np.repeat(0. , xsttime.size) # degrees
+    alt_list = np.repeat(90., xsttime.size)
+    ra_zenith, dec_zenith = altaz2radec(az_list, alt_list, Time(xsttime, format='jd'))
+
+    # ------ Get data to transform ------
+    mstable   = table(os.path.join(msname), ack=False, readonly=True)
+    uvw       = mstable.getcol('UVW')
+    data      = mstable.getcol('DATA')
+    spwdataid = mstable.getcol('DATA_DESC_ID')  # Nvis*Ntimes*Kspw
+    spwtable  = table(os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
+    chanfreq  = spwtable.getcol('CHAN_FREQ')   # Nvis*Ntimes*Kspw x Nchan x 4   in Hz
+    desctable = table( os.path.join(msname, 'DATA_DESCRIPTION'), ack=False, readonly=True)
+    spwid     = desctable.getcol('SPECTRAL_WINDOW_ID')  # Total list of spectral window ID
+    mstable.close()
+    spwtable.close()
+    desctable.close()
+
+    # ------ Properties ------ #
+    mstable    = table(msname, ack=False, readonly=True)
+    mstime     = mstable.getcol('TIME')
+    sbpertime  = int(mstime.size / baselines / time_table.size)
+    mstable.close()
+
+    antable   = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
+    baselines = int(antable.nrows() * (antable.nrows() - 1)/2. + antable.nrows())
+    antable.close()
+
+    # ------ Wavelength ------
+    frequency  = np.take(chanfreq, spwid[spwdataid], axis=0) # Nvis*Ntimes*Nspw*Nchan extract of list of channel frequencies for the relevant SPWID
+    wavelength = lightSpeed() / frequency
+
+    # ------ Re-phase ------
+    # Going from zenith ra / dec (time dependent) towards new ra_center, dec_center
+    final_trans, w_new = rotMatrix(ra_center, dec_center)
+    blocksize = baselines * sbpertime
+    # bar = ChargingBar('Re-phasing the data towards RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)), max=ra_z.size)
+    for itime in np.arange(ra_zenith.size):
+        idx1 = itime     * blocksize # start index
+        idx2 = (itime+1) * blocksize
+        original_trans, w_old = rotMatrix(ra_zenith[itime], dec_zenith[itime]) 
+        total_trans           = np.dot(final_trans.T, original_trans)
+        if itime > 1:
+            # Check that original UVW tables are identical for every time step
+            if not np.array_equal(tmpuvw, uvw[idx1:idx2]):
+                raise ValueError("\t=== Initial UVW are not equal at every time frame ===")
+        tmpuvw = uvw[idx1:idx2].copy()
+        phase                 = np.dot( np.dot( (w_old-w_new).T, original_trans) , uvw[idx1:idx2].T )
+        # Updating UVW
+        uvw[idx1:idx2]        = np.dot(uvw[idx1:idx2], total_trans.T)
+        nrows, nchan, npol = data[idx1:idx2].shape
+        for chan in xrange(nchan):
+            dphi = np.exp( phase * 2 * np.pi * 1j / wavelength[idx1:idx2, chan])
+            for pol in xrange(npol):
+                # Data rephasing
+                data[idx1:idx2, chan, pol] = data[idx1:idx2, chan, pol] * dphi
+    #     bar.next()
+    # bar.finish()
+
+    # ------ Writing Output ------ #
+    mstable = table(msname, ack=False, readonly=False)
+    mstable.putcol('UVW', uvw)
+    mstable.flush()
+    mstable.close(); del uvw
+
+    mstable = table(msname, ack=False, readonly=False)
+    mstable.putcol('DATA', data)
+    mstable.flush()
+    mstable.close(); del data
+
+    updateHist(message='UVW and DATA rephased re-computed to RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)))
+    return
+
+# =================================================================================== #
+# ----------------------------------- addPointing ----------------------------------- #
+# =================================================================================== #
+def addPointing():
     """
     """
     return
@@ -386,11 +595,37 @@ def updateHist(message):
 #         self._taskComplete(task=log[1][3])
 #         return
 
+# =================================================================================== #
+# ----------------------------------- rotMatrix ------------------------------------- #
+# =================================================================================== #
+def rotMatrix(ra, dec):
+    """ Compute a 3D rotation matrix
+        
+        Parameters
+        ----------
+        * **ra** : float
+            Right Ascension (in radians)
+        * **dec** : float
+            Declination (in radians)
+
+        Returns
+        -------
+        * **rot** : np.ndarray
+            Rotation matrix
+        * **w** : np.ndarray
+            W vector
+    """
+    w = np.array([[  np.sin(ra)*np.cos(dec) ,  np.cos(ra)*np.cos(dec) , np.sin(ded) ]]).T
+    v = np.array([[ -np.sin(ra)*np.sin(dec) , -np.cos(ra)*np.sin(dec) , np.cos(ded) ]]).T
+    u = np.array([[  np.cos(ra)             , -np.sin(ra)             , 0.          ]]).T
+    rot_matrix = np.concatenate([u, v, w], axis=-1)
+    return rot_matrix, w
+
 
 # =================================================================================== #
 # ------------------------------------- Checks -------------------------------------- #
 # =================================================================================== #
-def _isMS(msname):
+def isMS(msname):
     """ Check that the MS exists
     """
     if not os.path.isdir(msname):
@@ -398,5 +633,18 @@ def _isMS(msname):
     return
 
 
-
+def checkSum(msname):
+    """ Check that the sum of all auto-correlations imag( XY ) + imag( YX ) is 0
+    """
+    mstable = table(msname, ack=False, readonly=True)
+    mstable = mstable.query('ANTENNA1 == ANTENNA2') # get only auto-correlations
+    data   = mstable.getcol('DATA')
+    mstable.close()
+    auto_sum = np.sum(data[:, : , 1].imag + data[:, :, 2 ].imag)
+    if auto_sum != 0.:
+        raise ValueError("\t=== WARNING: Something's wrong... Failed to verify _checkSum() test! ===")
+    else:
+        # Everything's alright ;-)
+        pass
+    return
 

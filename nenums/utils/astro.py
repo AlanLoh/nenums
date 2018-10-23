@@ -32,6 +32,16 @@ def nancay():
     """
     return coord.EarthLocation(lat=47.376511*u.deg, lon=2.1924002*u.deg)
 
+def lightSpeed():
+    """ Get the light speed
+
+        Returns
+        -------
+        * **c** : float
+            Speed of light in m/s
+    """
+    return const.c.value
+
 
 def altaz2radec(az, alt, t):
     """ Convert Azimuth-Elevation coordinates into RA-Dec equatorial coordinates
@@ -40,18 +50,18 @@ def altaz2radec(az, alt, t):
         
         Parameters
         ----------
-        az : (float)
+        az : float
             Azimuth in degrees
-        alt : (float)
+        alt : float
             Elevation in degrees
-        t : (string or Time)
+        t : str or Time
             Time at which to compute the corresponding RA Dec
 
         Returns
         -------
-        RA : (float)
-            Right Ascension in raidans
-        Dec : (float)
+        RA : float
+            Right Ascension in radians
+        Dec : float
             Declination in radians
     """
     if not isinstance(t, Time):
