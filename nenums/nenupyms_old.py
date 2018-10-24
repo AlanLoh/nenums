@@ -306,7 +306,7 @@ class NenuFits(nenupy.Read):
                     ant1_index   = np.where(self.miniarrays == ant1)[0][0]
                     ant2_index   = np.where(self.miniarrays == ant2)[0][0]
                     clever_index = (ant1_table == ant1_index) & (ant2_table == ant2_index)
-                    data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2]))
+                    data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2])) 
                     bar.next()
         bar.finish()
 

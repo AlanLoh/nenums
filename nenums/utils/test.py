@@ -32,4 +32,10 @@ addData(msname='Test.ms', builtma=allma, xstdata=d)
 
 zenithUVW(msname='Test.ms')
 
-rephaseData(msname='Test.ms', xsttime=t, ra_center=45, dec_center=45)
+#rephaseData(msname='Test.ms', xsttime=t, ra_center=45, dec_center=45)
+
+addPointing(msname='Test.ms', ra_center=45, dec_center=45)
+
+cleanDir(msname='Test.ms')
+
+splitMS(msname='Test.ms', remove=True)

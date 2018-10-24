@@ -10,6 +10,7 @@ import os
 import numpy as np
 import warnings
 import inspect
+import shutil
 
 from astropy.time import Time
 try:
@@ -17,8 +18,10 @@ try:
 except:
     print("\n\t=== WARNING ===")
 
-# from .astro import altaz2radec
-from astro import altaz2radec, lightSpeed
+from .astro import altaz2radec, lightSpeed
+from .progressbar import ProgressBar
+# from astro import altaz2radec, lightSpeed
+# from progressbar import ProgressBar
 
 
 __author__ = 'Alan Loh'
@@ -38,6 +41,8 @@ __all__ = [ 'antTable',
             'zenithUVW',
             'rephaseData',
             'addPointing',
+            'cleanDir',
+            'splitMS',
             'updateHist']
 
 
@@ -128,7 +133,7 @@ def emptyMS(msname, start, dt, bwidth, xstsbbands):
     # ------ Use makems to produce an empty MS ------# 
     os.system('makems {}'.format(os.path.join(outpath, 'makems.cfg')))
         
-    updateHist(message='Creation of the Measurement Set')
+    updateHist(msname=msname, message='Creation of the Measurement Set')
 
     return
 
@@ -167,7 +172,7 @@ def addInfos(msname, xstheader):
     mstable.flush()
     mstable.close()
 
-    updateHist(message='Observation info added, from XST fits (version {})\
+    updateHist(msname=msname, message='Observation info added, from XST fits (version {})\
         created by software version {}.'.format(xstheader['VERSION'], xstheader['SOFTWARE']))
     
     return
@@ -256,7 +261,7 @@ def addFreq(msname, xstsbbands):
     mstable.close()
     del mstable, spwid_table, dummy
     
-    updateHist(message='SPECTRAL_WINDOW and DATA_DESCRIPTION tables written.')
+    updateHist(msname=msname, message='SPECTRAL_WINDOW and DATA_DESCRIPTION tables written.')
     return
 
 
@@ -291,7 +296,7 @@ def addTime(msname, xsttime):
     mstable.flush()
     mstable.close()
 
-    updateHist(message='TIME table filled.')
+    updateHist(msname=msname, message='TIME table filled.')
     return
 
 
@@ -328,7 +333,7 @@ def addDescId(msname, xstsbbands):
     mstable.flush()
     mstable.close()
 
-    updateHist(message='TIME table filled.')
+    updateHist(msname=msname, message='DATA_DESC_ID table filled.')
     return
 
 
@@ -360,7 +365,7 @@ def addData(msname, builtma, xstdata):
     ant1_table = mstable.getcol('ANTENNA1')
     ant2_table = mstable.getcol('ANTENNA2')
 
-    # bar = ChargingBar('Filling MS data from the XST cross-correlations', max=baselines)
+    bar = ProgressBar(valmax=baselines, title='Filling MS data from the XST cross-correlations')
     for ant1 in builtma:
         for ant2 in builtma[ant1:]:
             if (ant1 not in usedmas) or (ant2 not in usedmas):
@@ -380,9 +385,8 @@ def addData(msname, builtma, xstdata):
             ant1_index   = np.where(usedmas == ant1)[0][0]
             ant2_index   = np.where(usedmas == ant2)[0][0]
             clever_index = (ant1_table == ant1_index) & (ant2_table == ant2_index)
-            data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2]))
-            # bar.next()
-    # bar.finish()
+            data_ms[clever_index, :, :] = np.reshape(data, (data.shape[0]*data.shape[1], 1, data.shape[2])) # (ntimes*nsubpertime, nchan, npol)
+            bar.update()
 
     mstable.putcol('DATA', data_ms) 
     mstable.flush()
@@ -390,7 +394,7 @@ def addData(msname, builtma, xstdata):
 
     checkSum(msname=msname)
 
-    updateHist(message='DATA table filled with XST cross-correlations.')
+    updateHist(msname=msname,  message='DATA table filled with XST cross-correlations.')
     return
 
 
@@ -409,17 +413,17 @@ def zenithUVW(msname):
             Name of the Measurement Set
     """
     isMS(msname)
-
-    mstable    = table(msname, ack=False, readonly=True)
-    mstime     = mstable.getcol('TIME')
-    sbpertime  = int(mstime.size / baselines / time_table.size)
-    mstable.close()
     
     mstable = table(msname, ack=False, readonly=False)
     uvw     = mstable.getcol('UVW')
     antable = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
     baselines = int(antable.nrows() * (antable.nrows() - 1)/2. + antable.nrows())
     antable.close()
+    
+    mstable    = table(msname, ack=False, readonly=True)
+    mstime     = mstable.getcol('TIME')
+    sbpertime  = int(mstime.size / baselines / np.unique(mstime).size)
+
     blocksize = baselines * sbpertime
     
     if uvw.shape[0]%blocksize != 0:
@@ -433,7 +437,7 @@ def zenithUVW(msname):
     mstable.flush()
     mstable.close(); del uvw
     
-    updateHist(message='UVW table re-computed towards local zenith')
+    updateHist(msname=msname, message='UVW table re-computed towards local zenith')
     return 
 
 
@@ -452,9 +456,9 @@ def rephaseData(msname, xsttime, ra_center, dec_center):
             Name of the Measurement Set
         * **xsttime** : np.ndarray
             Time array from a XST file (in JD)
-        * **ra** : float
+        * **ra_center** : float
             Right-Ascension of the tracked target (in radians)
-        * **dec** : float
+        * **dec_center** : float
             Declination of the tracked target (in radians)
     """
     isMS(msname)
@@ -478,14 +482,14 @@ def rephaseData(msname, xsttime, ra_center, dec_center):
     desctable.close()
 
     # ------ Properties ------ #
-    mstable    = table(msname, ack=False, readonly=True)
-    mstime     = mstable.getcol('TIME')
-    sbpertime  = int(mstime.size / baselines / time_table.size)
-    mstable.close()
-
     antable   = table( os.path.join(msname, 'ANTENNA'), ack=False, readonly=True)
     baselines = int(antable.nrows() * (antable.nrows() - 1)/2. + antable.nrows())
     antable.close()
+
+    mstable    = table(msname, ack=False, readonly=True)
+    mstime     = mstable.getcol('TIME')
+    sbpertime  = int(mstime.size / baselines / np.unique(mstime).size)
+    mstable.close()
 
     # ------ Wavelength ------
     frequency  = np.take(chanfreq, spwid[spwdataid], axis=0) # Nvis*Ntimes*Nspw*Nchan extract of list of channel frequencies for the relevant SPWID
@@ -495,7 +499,7 @@ def rephaseData(msname, xsttime, ra_center, dec_center):
     # Going from zenith ra / dec (time dependent) towards new ra_center, dec_center
     final_trans, w_new = rotMatrix(ra_center, dec_center)
     blocksize = baselines * sbpertime
-    # bar = ChargingBar('Re-phasing the data towards RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)), max=ra_z.size)
+    bar = ProgressBar(valmax=ra_zenith.size, title='Re-phasing the data towards RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)))
     for itime in np.arange(ra_zenith.size):
         idx1 = itime     * blocksize # start index
         idx2 = (itime+1) * blocksize
@@ -506,17 +510,17 @@ def rephaseData(msname, xsttime, ra_center, dec_center):
             if not np.array_equal(tmpuvw, uvw[idx1:idx2]):
                 raise ValueError("\t=== Initial UVW are not equal at every time frame ===")
         tmpuvw = uvw[idx1:idx2].copy()
-        phase                 = np.dot( np.dot( (w_old-w_new).T, original_trans) , uvw[idx1:idx2].T )
+        phase  = np.dot( np.dot( (w_old-w_new).T, original_trans) , uvw[idx1:idx2].T )
+
         # Updating UVW
-        uvw[idx1:idx2]        = np.dot(uvw[idx1:idx2], total_trans.T)
+        uvw[idx1:idx2] = np.dot(uvw[idx1:idx2], total_trans.T)
         nrows, nchan, npol = data[idx1:idx2].shape
-        for chan in xrange(nchan):
+        for chan in np.arange(nchan):
             dphi = np.exp( phase * 2 * np.pi * 1j / wavelength[idx1:idx2, chan])
-            for pol in xrange(npol):
+            for pol in np.arange(npol):
                 # Data rephasing
                 data[idx1:idx2, chan, pol] = data[idx1:idx2, chan, pol] * dphi
-    #     bar.next()
-    # bar.finish()
+        bar.update()
 
     # ------ Writing Output ------ #
     mstable = table(msname, ack=False, readonly=False)
@@ -529,71 +533,213 @@ def rephaseData(msname, xsttime, ra_center, dec_center):
     mstable.flush()
     mstable.close(); del data
 
-    updateHist(message='UVW and DATA rephased re-computed to RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)))
+    updateHist(msname=msname, message='UVW and DATA rephased re-computed to RA='+str(np.degrees(ra_center))+' DEC='+str(np.degrees(dec_center)))
     return
+
 
 # =================================================================================== #
 # ----------------------------------- addPointing ----------------------------------- #
 # =================================================================================== #
-def addPointing():
+def addPointing(msname, ra_center, dec_center):
+    """ Add pointing informations to the MS
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+         * **ra_center** : float
+            Right-Ascension of the tracked target (in radians)
+        * **dec_center** : float
+            Declination of the tracked target (in radians)
     """
-    """
+    isMS(msname)
+
+    # ------ Changing Phase Center in FIELD subtable ------ # 
+    mstable   = table( os.path.join(msname, 'FIELD'), ack=False, readonly=False)
+    delay_tab = mstable.getcol('DELAY_DIR')
+    phase_tab = mstable.getcol('PHASE_DIR')
+    refer_tab = mstable.getcol('REFERENCE_DIR')
+    delay_tab[0, 0, 0] = ra_center # radians !
+    delay_tab[0, 0, 1] = dec_center
+    phase_tab[0, 0, 0] = ra_center
+    phase_tab[0, 0, 1] = dec_center
+    refer_tab[0, 0, 0] = ra_center  
+    refer_tab[0, 0, 1] = dec_center 
+    mstable.putcol('DELAY_DIR', delay_tab)
+    mstable.putcol('PHASE_DIR', phase_tab)
+    mstable.putcol('REFERENCE_DIR', refer_tab)
+    mstable.flush()
+    mstable.close()
+
+    # ------ Changing POINTING subtable ------ # 
+    mstable   = table( os.path.join(msname, 'POINTING'), ack=False, readonly=False)
+    dir_tab   = mstable.getcol('DIRECTION')
+    targ_tab  = mstable.getcol('TARGET')
+    track_tab = mstable.getcol('TRACKING')
+    dir_tab[:,  0, 0] = np.repeat(ra_center,  dir_tab[:,  0, 0].size)
+    dir_tab[:,  0, 1] = np.repeat(dec_center, dir_tab[:,  0, 1].size)
+    targ_tab[:, 0, 0] = np.repeat(ra_center,  targ_tab[:, 0, 0].size)
+    targ_tab[:, 0, 1] = np.repeat(dec_center, targ_tab[:, 0, 1].size)
+    track_tab[:] = np.ones(track_tab.size, dtype=bool)
+    mstable.putcol('DIRECTION', dir_tab)
+    mstable.putcol('TARGET', targ_tab)
+    mstable.putcol('TRACKING', track_tab)
+    mstable.flush()
+    mstable.close()
+
+    updateHist(msname=msname, message='Pointing informations updated')
     return
+
+
+# =================================================================================== #
+# ------------------------------------ cleanDir ------------------------------------- #
+# =================================================================================== #
+def cleanDir(msname):
+    """ Remove unused sub-items created during the MS construction process
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+    """
+    msname = os.path.abspath(msname)
+    mspath = os.path.dirname(msname)
+    ant_table = os.path.join(mspath, 'ANTENNA')
+    try:
+        shutil.rmtree(ant_table, ignore_errors=True)
+        os.rename( os.path.join(mspath, 'makems.cfg'), os.path.join(mspath, os.path.basename(msname)[:-3] + '_makems.cfg'))
+        os.remove( msname + '.gds' )
+        os.remove( msname + '.vds' )
+    except:
+        print("\t=== WARNING: error trying to clean {} from unused files. ===".format(mspath))
+    return
+
+
+# =================================================================================== #
+# ------------------------------------- splitMS ------------------------------------- #
+# =================================================================================== #
+def splitMS(msname, remove=False):
+        """ Split the MS by sub-bands, as LOFAR
+
+            Parameters
+            ----------
+            * **msname** : str
+                Name of the Measurement Set
+            * **remove** : bool, optional
+                Remove the Measurement Set once it has correctly been split (default = False)
+        """
+        mspath = os.path.dirname(msname)
+
+        freqt = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
+        names = freqt.getcol('NAME')
+        freqs = freqt.getcol('REF_FREQUENCY')
+        subbands = freqt.nrows()
+        freqt.close()
+        desct = table(os.path.join(msname, 'DATA_DESCRIPTION'), ack=False, readonly=True)
+        spws  = desct.getcol('SPECTRAL_WINDOW_ID')
+        desct.close()
+
+        mstable = table(msname, ack=False, readonly=True)
+        for spw, name, freq in zip(spws, names, freqs):
+            output = msname.split('.ms')[0] + '_SB' + str(name) + '.ms'
+            newms  = mstable.query('DATA_DESC_ID == {}'.format(spw))
+            newms.copy(output, deep=True)
+            newms.close()
+            # Update SPECTRAL_WINDOW and DATA_DESCRIPTION tables to match the frequency selection
+            ftable = table( os.path.join(output, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+            ftable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
+            ftable.flush()
+            ftable.close()
+            mstab  = table(output, ack=False, readonly=False)
+            datad  = mstab.getcol('DATA_DESC_ID')
+            datad  = np.zeros( datad.shape ) # every element is labelled 'SPW=0' now...
+            mstab.putcol('DATA_DESC_ID', datad)
+            mstab.flush()
+            mstab.close()
+            dtable = table( os.path.join(output, 'DATA_DESCRIPTION'), ack=False, readonly=False)
+            dtable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
+            spwid = dtable.getcol('SPECTRAL_WINDOW_ID')
+            spwid[0] = 0 # set the SPW index to 0 since this is the only frequency
+            dtable.putcol('SPECTRAL_WINDOW_ID', spwid)
+            dtable.flush()
+            dtable.close()
+            print("\t=== Measurement set {} written. ===".format(output))
+        mstable.close()
+
+        # ------ Remove the MS ------ #
+        if remove:
+            sbms = glob.glob( os.path.join(mspath, '*_SB*.ms') )
+            if len(sbms) != subbands:
+                print("\t=== WARNING: could not find {} sub-band MSs in {}. ===".format(subbands, mspath))
+            else:
+                try:
+                    shutil.rmtree(msname, ignore_errors=True)
+                except:
+                    print("\t=== WARNING: impossible to remove {} ===".format(msname))
+            pass
+        return
 
 
 # =================================================================================== #
 # ----------------------------------- updateHist ------------------------------------ #
 # =================================================================================== #
-def updateHist(message):
+def updateHist(msname, message):
+    """ Keep track of the modifications.
+        Store everything into the HISTORY table of the Measurment set
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **message** : str
+            Message to be kept in HISTORY
     """
-    """
+    log = inspect.stack()
+        
+    mstable = table( os.path.join(msname, 'HISTORY'), ack=False, readonly=True)
+    #cli_table = mstable.getcol('CLI_COMMAND')
+    app_table = mstable.getcol('APPLICATION')
+    mes_table = mstable.getcol('MESSAGE')
+    ori_table = mstable.getcol('ORIGIN')
+    pri_table = mstable.getcol('PRIORITY')
+    tim_table = mstable.getcol('TIME')
+    mstable.flush()
+    mstable.close()
+
+    if app_table is None:
+        # Initialization
+        #cli_table = np.array([ log[2][4] ]) 
+        app_table = log[0][1]
+        mes_table = message
+        ori_table = log[1][3]
+        pri_table = 'INFO'
+        tim_table = Time.now().mjd * 3600. * 24.
+    else:
+        #cli_table.append( np.array([log[2][4]])  )   # {'shape': [1, 1], 'array': ['        self._makeEmptyMS()\n']}
+        app_table.append( log[0][1]  )
+        mes_table.append( message )
+        ori_table.append( log[1][3] )
+        pri_table.append( 'INFO' )
+        tim_table = np.append( tim_table, Time.now().mjd * 3600. * 24. )
+
+    mstable = table( os.path.join(msname, 'HISTORY'), ack=False, readonly=False)
+    mstable.addrows( nrows=1 )
+    mstable.flush()
+    mstable.close()
+
+    mstable = table( os.path.join(msname, 'HISTORY'), ack=False, readonly=False)
+    #mstable.putcol('CLI_COMMAND', cli_table)
+    mstable.putcol('APPLICATION', app_table)
+    mstable.putcol('MESSAGE'    , mes_table)
+    mstable.putcol('ORIGIN'     , ori_table)
+    mstable.putcol('PRIORITY'   , pri_table)
+    mstable.putcol('TIME'       , tim_table)
+    mstable.flush()
+    mstable.close()
+
+    # self._taskComplete(task=log[1][3])
     return
 
-# log = inspect.stack()
-        
-#         mstable = table( os.path.join(self.msfile, 'HISTORY'), ack=False, readonly=True)
-#         #cli_table = mstable.getcol('CLI_COMMAND')
-#         app_table = mstable.getcol('APPLICATION')
-#         mes_table = mstable.getcol('MESSAGE')
-#         ori_table = mstable.getcol('ORIGIN')
-#         pri_table = mstable.getcol('PRIORITY')
-#         tim_table = mstable.getcol('TIME')
-#         mstable.flush()
-#         mstable.close()
-
-#         if app_table is None:
-#             # Initialization
-#             #cli_table = np.array([ log[2][4] ]) 
-#             app_table = log[0][1]
-#             mes_table = m
-#             ori_table = log[1][3]
-#             pri_table = 'INFO'
-#             tim_table = Time.now().mjd * 3600. * 24.
-#         else:
-#             #cli_table.append( np.array([log[2][4]])  )   # {'shape': [1, 1], 'array': ['        self._makeEmptyMS()\n']}
-#             app_table.append( log[0][1]  )
-#             mes_table.append( m )
-#             ori_table.append( log[1][3] )
-#             pri_table.append( 'INFO' )
-#             tim_table = np.append( tim_table, Time.now().mjd * 3600. * 24. )
-
-#         mstable = table( os.path.join(self.msfile, 'HISTORY'), ack=False, readonly=False)
-#         mstable.addrows( nrows=1 )
-#         mstable.flush()
-#         mstable.close()
-
-#         mstable = table( os.path.join(self.msfile, 'HISTORY'), ack=False, readonly=False)
-#         #mstable.putcol('CLI_COMMAND', cli_table)
-#         mstable.putcol('APPLICATION', app_table)
-#         mstable.putcol('MESSAGE'    , mes_table)
-#         mstable.putcol('ORIGIN'     , ori_table)
-#         mstable.putcol('PRIORITY'   , pri_table)
-#         mstable.putcol('TIME'       , tim_table)
-#         mstable.flush()
-#         mstable.close()
-
-#         self._taskComplete(task=log[1][3])
-#         return
 
 # =================================================================================== #
 # ----------------------------------- rotMatrix ------------------------------------- #
@@ -615,8 +761,8 @@ def rotMatrix(ra, dec):
         * **w** : np.ndarray
             W vector
     """
-    w = np.array([[  np.sin(ra)*np.cos(dec) ,  np.cos(ra)*np.cos(dec) , np.sin(ded) ]]).T
-    v = np.array([[ -np.sin(ra)*np.sin(dec) , -np.cos(ra)*np.sin(dec) , np.cos(ded) ]]).T
+    w = np.array([[  np.sin(ra)*np.cos(dec) ,  np.cos(ra)*np.cos(dec) , np.sin(dec) ]]).T
+    v = np.array([[ -np.sin(ra)*np.sin(dec) , -np.cos(ra)*np.sin(dec) , np.cos(dec) ]]).T
     u = np.array([[  np.cos(ra)             , -np.sin(ra)             , 0.          ]]).T
     rot_matrix = np.concatenate([u, v, w], axis=-1)
     return rot_matrix, w
@@ -634,7 +780,8 @@ def isMS(msname):
 
 
 def checkSum(msname):
-    """ Check that the sum of all auto-correlations imag( XY ) + imag( YX ) is 0
+    """ Check that the sum of all auto-correlations imag( XY ) + imag( YX ) is 0.
+        This method is completely independent from the way data are stored in the MS.
     """
     mstable = table(msname, ack=False, readonly=True)
     mstable = mstable.query('ANTENNA1 == ANTENNA2') # get only auto-correlations

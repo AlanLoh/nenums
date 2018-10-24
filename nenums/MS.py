@@ -2,21 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Class work on a Measurement SET
+Class to work on a Measurement SET
         by A. Loh
 """
 
 import os
 
 from astropy.io import fits
-from astropy.time import Time
 
-try:
-    from pyrap.tables import table, addImagingColumns
-except:
-    print("\n\t=== WARNING ===")
-    # raise ImportError("\n\t=== Unable to import the pyrap module ===")
-
+from .XST import XST
 
 __author__ = ['Alan Loh']
 __copyright__ = 'Copyright 2018, nenums'
@@ -29,58 +23,76 @@ __status__ = 'WIP'
 __all__ = ['MS']
 
 
-class MS():
-    def __init__(self):
-        return
-
-    def emptyMS(self):
-        """ Create an empty Measurement Set with the `makems` executable
-            - Write a parset file 'makems.cfg': dictionnary of MS properties
-            - Launch `makems`
-
+class MS(object):
+    def __init__(self, xst):
+        self.xst = xst
+    
+    # ================================================================= #
+    # ======================== Getter / Setter ======================== #
+    @property
+    def xst(self):
+        """ XST observation
         """
-        if not os.path.isdir(self.msfile):
-            #ra, dec = self._azel2radec(0, 90, Time(self.xsttime[0], format='jd')) # Zenith RA Dec at the beginning of the observation
-            ra, dec = self._azel2radec(0, 90, self.xsttime[0]) # Zenith RA Dec at the beginning of the observation
-
-            D = {}
-            D['AntennaTableName']   = {'id': 0, 'val': os.path.join(self.savepath, 'ANTENNA')}
-            D['Declination']        = {'id': 0, 'val': str( dec ) + 'rad'}
-            D['RightAscension']     = {'id': 0, 'val': str( ra )  + 'rad'}
-            D['MSName']             = {'id': 0, 'val': self.msfile}
-            D['NBands']             = {'id': 0, 'val': str(self.subpertime )} # str(self.spec_windows.size)} # number of Spectral Windows
-            D['WriteAutoCorr']      = {'id': 0, 'val': 'T'}
-            D['StartFreq']          = {'id': 0, 'val': '[' + str( self.xstsubb[0, 0] * self.bandwidth + self.bandwidth/2. ) + ']'}
-            D['StepFreq']           = {'id': 0, 'val': str(self.bandwidth)}
-            #D['NFrequencies']       = {'id': 0, 'val': str(self.subpertime )} #str(self.spec_windows.size)} # number of distinct frequencies
-            D['NFrequencies']       = {'id': 0, 'val': str(self.subbands.size )} #str(self.spec_windows.size)} # number of distinct frequencies
-            D['StartTime']          = {'id': 0, 'val': Time(self.xsttime[0], format='jd').isot.replace('T', '/')}
-            D['StepTime']           = {'id': 0, 'val': str(self.steptime)} #"."
-            D['NTimes']             = {'id': 0, 'val': str(self.xstsubb.shape[0])}
-            D['VDSPath']            = {'id': 0, 'val': self.savepath}
-            D['WriteImagerColumns'] = {'id': 0, 'val': "T"}
-            # ------ Create a parset from the dictionnary ------# 
-            parset = open( os.path.join(self.savepath, 'makems.cfg'), 'w')
-            for key in D.keys():
-                parset.write('{} = {}\n'.format(key, D[key]['val']))
-            parset.close()
-            # ------ Use makems to produce an empty MS ------# 
-            os.system('makems {}'.format(os.path.join(self.savepath, 'makems.cfg')))
-            self._updateHistory(m='Creation of the Measurement Set from {}'.format(self.obsfile))
-        else:
-            print("\t=== Measurement Set {} already exists. ===".format(self.msfile))
-        return
-
-    def addInfos(self):
-        """ 
-        """
+        return self._xst
+    @xst.setter
+    def xst(self, x):
+        self._xst = XST(xstfile=x)
         return
 
 
-    def addFreq(self):
+    # ================================================================= #
+    # =========================== Methods ============================= #
+    def createMS(self):
         """
         """
+
+        hdu = fits.open('/data/loh/NenuFAR/Test_MS_labo/20180605_125000_XST.fits')
+        s = hdu[7].data['xstsubband']
+        t = hdu[7].data['jd']
+        d = hdu[7].data['data']
+        h = fits.getheader('/data/loh/NenuFAR/Test_MS_labo/20180605_125000_XST.fits', ext=0)
+        m = np.squeeze(hdu[1].data['noMROn']) 
+        allma = np.squeeze(hdu[1].data['noMR']) 
+
+        antTable(msname='Test.ms', miniarrays=m)
+
+        emptyMS(msname='Test.ms',
+            start='2018-10-20 12:00:00',
+            dt=1,
+            bwidth=195.e3,
+            xstsbbands=s)
+
+        addInfos(msname='Test.ms',
+            xstheader=h)
+
+        addFreq(msname='Test.ms', xstsbbands=s)
+
+        addTime(msname='Test.ms', xsttime=t)
+
+        addDescId(msname='Test.ms', xstsbbands=s)
+
+        addData(msname='Test.ms', builtma=allma, xstdata=d)
+
+        zenithUVW(msname='Test.ms')
+
+        #rephaseData(msname='Test.ms', xsttime=t, ra_center=45, dec_center=45)
+
+        addPointing(msname='Test.ms', ra_center=45, dec_center=45)
+
+        cleanDir(msname='Test.ms')
+
+        splitMS(msname='Test.ms', remove=True)
+        
         return
+
+
+    # ================================================================= #
+    # =========================== Internal ============================ #
+
+
+
+
+
 
 
 
