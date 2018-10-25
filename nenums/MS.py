@@ -11,6 +11,7 @@ import os
 from astropy.io import fits
 
 from .XST import XST
+from .utils.ms import *
 
 __author__ = ['Alan Loh']
 __copyright__ = 'Copyright 2018, nenums'
@@ -24,8 +25,9 @@ __all__ = ['MS']
 
 
 class MS(object):
-    def __init__(self, xst):
-        self.xst = xst
+    def __init__(self, xst, msname):
+        self.xst    = xst
+        self.msname = msname
     
     # ================================================================= #
     # ======================== Getter / Setter ======================== #
@@ -45,44 +47,35 @@ class MS(object):
     def createMS(self):
         """
         """
+        antTable(msname=self.msname, miniarrays=self.miniarrays)
 
-        hdu = fits.open('/data/loh/NenuFAR/Test_MS_labo/20180605_125000_XST.fits')
-        s = hdu[7].data['xstsubband']
-        t = hdu[7].data['jd']
-        d = hdu[7].data['data']
-        h = fits.getheader('/data/loh/NenuFAR/Test_MS_labo/20180605_125000_XST.fits', ext=0)
-        m = np.squeeze(hdu[1].data['noMROn']) 
-        allma = np.squeeze(hdu[1].data['noMR']) 
-
-        antTable(msname='Test.ms', miniarrays=m)
-
-        emptyMS(msname='Test.ms',
+        emptyMS(msname=self.msname,
             start='2018-10-20 12:00:00',
             dt=1,
             bwidth=195.e3,
-            xstsbbands=s)
+            xstsbbands=self.xstsubband )
 
-        addInfos(msname='Test.ms',
+        addInfos(msname=self.msname,
             xstheader=h)
 
-        addFreq(msname='Test.ms', xstsbbands=s)
+        addFreq(msname=self.msname, xstsbbands=self.xstsubband )
 
-        addTime(msname='Test.ms', xsttime=t)
+        addTime(msname=self.msname, xsttime=self.xsttime )
 
-        addDescId(msname='Test.ms', xstsbbands=s)
+        addDescId(msname=self.msname, xstsbbands=self.xstsubband )
 
-        addData(msname='Test.ms', builtma=allma, xstdata=d)
+        addData(msname=self.msname, builtma=self.allmas, xstdata=self.xstdata)
 
-        zenithUVW(msname='Test.ms')
+        zenithUVW(msname=self.msname)
 
-        #rephaseData(msname='Test.ms', xsttime=t, ra_center=45, dec_center=45)
+        rephaseData(msname=self.msname, xsttime=self.xsttime, ra_center=45, dec_center=45)
 
-        addPointing(msname='Test.ms', ra_center=45, dec_center=45)
+        addPointing(msname=self.msname, ra_center=45, dec_center=45)
 
-        cleanDir(msname='Test.ms')
+        cleanDir(msname=self.msname)
 
-        splitMS(msname='Test.ms', remove=True)
-        
+        splitMS(msname=self.msname, remove=True)
+
         return
 
 

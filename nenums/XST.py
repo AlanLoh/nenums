@@ -41,13 +41,13 @@ class XST():
         if (o is None) or (o == '') or (os.path.isdir(o)):
             if os.path.isdir(o):
                 _opath = os.path.abspath(o)
-                bstfiles = glob.glob( os.path.join(_opath, '*XST.fits') )
+                xstfiles = glob.glob( os.path.join(_opath, '*XST.fits') )
             else:
-                bstfiles = glob.glob('*XST.fits')
-            if len(bstfiles) == 0:
+                xstfiles = glob.glob('*XST.fits')
+            if len(xstfiles) == 0:
                 raise IOError("\n\t=== No XST fits file in current directory, specify the file to read. ===")
-            elif len(bstfiles) == 1:
-                o = os.path.abspath(bstfiles[0])
+            elif len(xstfiles) == 1:
+                o = os.path.abspath(xstfiles[0])
             else:
                 raise IOError("\n\t=== Multiple XST files are not handled yet ===")
         else:
@@ -65,14 +65,6 @@ class XST():
         return
 
     # ================================================================= #
-    # =========================== Converter =========================== #
-    def convertMS(self):
-        """
-        """
-        print("ca marche")
-        return
-
-    # ================================================================= #
     # =========================== Internal ============================ #
     def _isXST(self):
         """ Check that self.xstfile is a proper XST observation
@@ -86,42 +78,15 @@ class XST():
         self.obsname = os.path.basename( self.xstfile )[:-9]
 
         with fits.open(self.xstfile, mode='readonly', ignore_missing_end=True, memmap=True) as f:
-            head      = f[0].header
+            self.head = f[0].header
             setup_ins = f[1].data
-            setup_obs = f[2].data
-            setup_ana = f[3].data
-            setup_bea = f[4].data
-            setup_pan = f[5].data
-            setup_pbe = f[6].data
+            data_hdu  = f[7].data
 
-        self.obstart  = Time( head['DATE-OBS'] + 'T' + head['TIME-OBS'] )
-        self.obstop   = Time( head['DATE-END'] + 'T' + head['TIME-END'] )
-        self.time     = [self.obstart.copy(), self.obstop.copy()]
-        self.exposure = self.obstop - self.obstart
-
-        self.miniarrays = np.squeeze( setup_ins['noMROn'] )
-        self._marot     = np.squeeze( setup_ins['rotation'] )
-        self._mapos     = np.squeeze( setup_ins['noPosition'] )
-        self._mapos     = self._mapos.reshape( int(self._mapos.size/3), 3 )
-        self._pols      = np.squeeze( setup_ins['spol'] )
-
-        self.abeams     = setup_ana['NoAnaBeam']
-        self._antlist   = np.array( [ np.array(eval(i)) - 1 for i in setup_ana['Antlist'] ])
-
-        self.dbeams     = setup_bea['noBeam']
-        self._digi2ana  = setup_bea['NoAnaBeam']
-        self._bletlist  = setup_bea['BeamletList']
-        self._freqs     = setup_bea['freqList']
-
-        self._pointana  = setup_pan['noAnaBeam']
-        self._azlistana = setup_pan['AZ']
-        self._ellistana = setup_pan['EL']
-        self._pointanat = Time(np.array([setup_pan['timestamp'][self._pointana==i] for i in self.abeams]))
-        
-        self._pointdig  = setup_pbe['noBeam']
-        self._azlistdig = setup_pbe['AZ']
-        self._ellistdig = setup_pbe['EL']    
-        self._pointdigt = Time(setup_pbe['timestamp'])
+        self.miniarrays = setup_ins['noMROn']
+        self.allmas     = setup_ins['noMR']
+        self.xstsubband = data_hdu['xstsubband']
+        self.xsttime    = data_hdu['jd']
+        self.xstdata    = data_hdu['data']
         return
 
 

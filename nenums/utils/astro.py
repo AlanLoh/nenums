@@ -32,6 +32,7 @@ def nancay():
     """
     return coord.EarthLocation(lat=47.376511*u.deg, lon=2.1924002*u.deg)
 
+
 def lightSpeed():
     """ Get the light speed
 

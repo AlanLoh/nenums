@@ -59,7 +59,7 @@ def antTable(msname, miniarrays):
         * **miniarrays** : np.ndarray
             Mini-Arrays from a XST file (ext: 1, key: 'noMROn')
     """
-    #self._checkAnt()
+    checkAnt(miniarrays=miniarrays)
     tabname = os.path.join( os.path.dirname(msname), 'ANTENNA')
     strmas  = ",".join("'MR{}'".format(i) for i in sorted( np.squeeze(miniarrays)) ) # str list of MAs
     command = 'python /cep/lofar/nenupy/makeant.py {} "[{}]"'.format(tabname, strmas)
@@ -72,6 +72,7 @@ def antTable(msname, miniarrays):
 # =================================================================================== #
 def emptyMS(msname, start, dt, bwidth, xstsbbands):
     """ Create an empty *Measurement Set* designed for NenuFAR XST observations.
+        This function calls an external program `makems` which is a LOFAR soft.
 
         Parameters
         ----------
@@ -142,7 +143,8 @@ def emptyMS(msname, start, dt, bwidth, xstsbbands):
 # ------------------------------------ addInfos ------------------------------------- #
 # =================================================================================== #
 def addInfos(msname, xstheader):
-    """ Add to the Measurement Set
+    """ Add observation standard information to the Measurement Set.
+        These infos are retrieved from the XST header.
 
         Parameters
         ----------
@@ -619,65 +621,65 @@ def cleanDir(msname):
 # ------------------------------------- splitMS ------------------------------------- #
 # =================================================================================== #
 def splitMS(msname, remove=False):
-        """ Split the MS by sub-bands, as LOFAR
+    """ Split the MS by sub-bands, as LOFAR
 
-            Parameters
-            ----------
-            * **msname** : str
-                Name of the Measurement Set
-            * **remove** : bool, optional
-                Remove the Measurement Set once it has correctly been split (default = False)
-        """
-        mspath = os.path.dirname(msname)
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+        * **remove** : bool, optional
+            Remove the Measurement Set once it has correctly been split (default = False)
+    """
+    mspath = os.path.dirname(msname)
 
-        freqt = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
-        names = freqt.getcol('NAME')
-        freqs = freqt.getcol('REF_FREQUENCY')
-        subbands = freqt.nrows()
-        freqt.close()
-        desct = table(os.path.join(msname, 'DATA_DESCRIPTION'), ack=False, readonly=True)
-        spws  = desct.getcol('SPECTRAL_WINDOW_ID')
-        desct.close()
+    freqt = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
+    names = freqt.getcol('NAME')
+    freqs = freqt.getcol('REF_FREQUENCY')
+    subbands = freqt.nrows()
+    freqt.close()
+    desct = table(os.path.join(msname, 'DATA_DESCRIPTION'), ack=False, readonly=True)
+    spws  = desct.getcol('SPECTRAL_WINDOW_ID')
+    desct.close()
 
-        mstable = table(msname, ack=False, readonly=True)
-        for spw, name, freq in zip(spws, names, freqs):
-            output = msname.split('.ms')[0] + '_SB' + str(name) + '.ms'
-            newms  = mstable.query('DATA_DESC_ID == {}'.format(spw))
-            newms.copy(output, deep=True)
-            newms.close()
-            # Update SPECTRAL_WINDOW and DATA_DESCRIPTION tables to match the frequency selection
-            ftable = table( os.path.join(output, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
-            ftable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
-            ftable.flush()
-            ftable.close()
-            mstab  = table(output, ack=False, readonly=False)
-            datad  = mstab.getcol('DATA_DESC_ID')
-            datad  = np.zeros( datad.shape ) # every element is labelled 'SPW=0' now...
-            mstab.putcol('DATA_DESC_ID', datad)
-            mstab.flush()
-            mstab.close()
-            dtable = table( os.path.join(output, 'DATA_DESCRIPTION'), ack=False, readonly=False)
-            dtable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
-            spwid = dtable.getcol('SPECTRAL_WINDOW_ID')
-            spwid[0] = 0 # set the SPW index to 0 since this is the only frequency
-            dtable.putcol('SPECTRAL_WINDOW_ID', spwid)
-            dtable.flush()
-            dtable.close()
-            print("\t=== Measurement set {} written. ===".format(output))
-        mstable.close()
+    mstable = table(msname, ack=False, readonly=True)
+    for spw, name, freq in zip(spws, names, freqs):
+        output = msname.split('.ms')[0] + '_SB' + str(name) + '.ms'
+        newms  = mstable.query('DATA_DESC_ID == {}'.format(spw))
+        newms.copy(output, deep=True)
+        newms.close()
+        # Update SPECTRAL_WINDOW and DATA_DESCRIPTION tables to match the frequency selection
+        ftable = table( os.path.join(output, 'SPECTRAL_WINDOW'), ack=False, readonly=False)
+        ftable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
+        ftable.flush()
+        ftable.close()
+        mstab  = table(output, ack=False, readonly=False)
+        datad  = mstab.getcol('DATA_DESC_ID')
+        datad  = np.zeros( datad.shape ) # every element is labelled 'SPW=0' now...
+        mstab.putcol('DATA_DESC_ID', datad)
+        mstab.flush()
+        mstab.close()
+        dtable = table( os.path.join(output, 'DATA_DESCRIPTION'), ack=False, readonly=False)
+        dtable.removerows(rownrs=np.arange(subbands)[np.arange(subbands) != spw])
+        spwid = dtable.getcol('SPECTRAL_WINDOW_ID')
+        spwid[0] = 0 # set the SPW index to 0 since this is the only frequency
+        dtable.putcol('SPECTRAL_WINDOW_ID', spwid)
+        dtable.flush()
+        dtable.close()
+        print("\t=== Measurement set {} written. ===".format(output))
+    mstable.close()
 
-        # ------ Remove the MS ------ #
-        if remove:
-            sbms = glob.glob( os.path.join(mspath, '*_SB*.ms') )
-            if len(sbms) != subbands:
-                print("\t=== WARNING: could not find {} sub-band MSs in {}. ===".format(subbands, mspath))
-            else:
-                try:
-                    shutil.rmtree(msname, ignore_errors=True)
-                except:
-                    print("\t=== WARNING: impossible to remove {} ===".format(msname))
-            pass
-        return
+    # ------ Remove the MS ------ #
+    if remove:
+        sbms = glob.glob( os.path.join(mspath, '*_SB*.ms') )
+        if len(sbms) != subbands:
+            print("\t=== WARNING: could not find {} sub-band MSs in {}. ===".format(subbands, mspath))
+        else:
+            try:
+                shutil.rmtree(msname, ignore_errors=True)
+            except:
+                print("\t=== WARNING: impossible to remove {} ===".format(msname))
+        pass
+    return
 
 
 # =================================================================================== #
@@ -776,6 +778,26 @@ def isMS(msname):
     """
     if not os.path.isdir(msname):
         raise IOError("\t=== MS '{}' not found ===".format(msname))
+    return
+
+
+def checkAnt(miniarrays):
+    """ Check that all required Mini-Arrays are in the location file
+        
+        Parameters
+        ----------
+        * **miniarrays** : np.ndarray
+            Mini-Arrays from a XST file (ext: 1, key: 'noMROn')
+    """
+    modulepath = os.path.dirname( os.path.realpath(__file__) )
+    rfile    = open(os.path.join(modulepath, 'locationsSB2.dat'), 'r')
+    mrinfile = []
+    for line in rfile:
+        if "DBNAME='NENUFAR'" in line:
+            mrinfile.append( int(line.split("'")[1][2:]) )
+    for ma in miniarrays:
+        if ma not in mrinfile:
+            raise ValueError("\t=== MA {} not in {} ===".format(ma, os.path.join(modulepath, 'locationsSB2.dat')))
     return
 
 
