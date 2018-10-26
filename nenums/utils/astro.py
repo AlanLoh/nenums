@@ -24,7 +24,7 @@ __all__ = ['nancay', 'altaz2radec']
 
 
 def nancay():
-    """ NanuFAR's position
+    """ NenuFAR's position
         
         Returns
         -------
