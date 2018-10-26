@@ -8,11 +8,11 @@ Class to read and load XST data
 
 import os
 import numpy as np
+import glob
 
 from astropy.io import fits
 from astropy.time import Time
 
-from . import MS
 from .utils.astro import altaz2radec
 
 __author__ = ['Alan Loh']
@@ -26,7 +26,7 @@ __status__ = 'WIP'
 __all__ = ['XST']
 
 
-class XST():
+class XST(object):
     def __init__(self, xstfile):
         self.xstfile = xstfile
 

@@ -9,6 +9,7 @@ Class to work on a Measurement SET
 import os
 
 from astropy.io import fits
+from astropy.time import Time
 
 from .XST import XST
 from .utils.ms import *
@@ -47,13 +48,13 @@ class MS(object):
     def createMS(self):
         """
         """
-        antTable(msname=self.msname, miniarrays=self.miniarrays)
+        antTable(msname=self.msname, miniarrays=self.xst.miniarrays)
 
         emptyMS(msname=self.msname,
-            start=self.xst.xsttime[0],
+            start=Time(self.xst.xsttime[0], format='jd'),
             dt=self.xst.dt,
             bwidth=self.xst.bwidth,
-            xstsbbands=self.xstsubband )
+            xstsbbands=self.xst.xstsubband )
 
         addInfos(msname=self.msname,
             xstheader=h)

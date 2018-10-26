@@ -13,3 +13,13 @@ setup(name       = 'nenums',
     author_email = 'alan.loh@obspm.fr',
     license      = 'MIT',
     zip_safe     = False)
+
+
+# make the package:
+# python3 setup.py sdist bdist_wheel
+# upload it:
+# python3 -m twine upload dist/*version*
+
+# Release:
+# git tag -a v*version* -m "annotation for this release"
+# git push origin --tags
