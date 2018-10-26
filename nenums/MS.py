@@ -57,7 +57,7 @@ class MS(object):
             xstsbbands=self.xst.xstsubband )
 
         addInfos(msname=self.msname,
-            xstheader=h)
+            xstheader=self.xst.head)
 
         addFreq(msname=self.msname, xstsbbands=self.xst.xstsubband )
 
