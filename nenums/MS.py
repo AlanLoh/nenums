@@ -61,7 +61,7 @@ class MS(object):
 
         addFreq(msname=self.msname, xstsbbands=self.xst.xstsubband )
 
-        addTime(msname=self.msname, xsttime=self.xsttime )
+        addTime(msname=self.msname, xsttime=self.xst.xsttime )
 
         addDescId(msname=self.msname, xstsbbands=self.xst.xstsubband )
 
