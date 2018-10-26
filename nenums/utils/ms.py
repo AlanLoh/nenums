@@ -14,7 +14,7 @@ import shutil
 
 from astropy.time import Time
 try:
-    from pyrap.tables import table, addImagingColumns
+    from pyrap.tables import table
 except:
     print("\n\t=== WARNING ===")
 
