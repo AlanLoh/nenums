@@ -7,7 +7,7 @@
 # Sept, 2009.
 #
 # Version: 20180409 : Julien Girard
-# Adding NenuFAR MR 0 to 41 measured positions
+# Adding NenuFAR MR 0 to 51 measured positions
 
 import pyrap.tables
 from pyrap.tables import tablecreatescalarcoldesc as cldsc
