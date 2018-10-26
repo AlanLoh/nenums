@@ -13,6 +13,7 @@ from astropy.io import fits
 from astropy.time import Time
 
 from . import MS
+from .utils.astro import altaz2radec
 
 __author__ = ['Alan Loh']
 __copyright__ = 'Copyright 2018, nenums'
@@ -80,13 +81,19 @@ class XST():
         with fits.open(self.xstfile, mode='readonly', ignore_missing_end=True, memmap=True) as f:
             self.head = f[0].header
             setup_ins = f[1].data
+            setup_ana = f[3].data
+            setup_pbe = f[6].data
             data_hdu  = f[7].data
 
-        self.miniarrays = setup_ins['noMROn']
+        self.miniarrays = np.array( [mrs[0:setup_ana['nbMRUsed'][i]] for i, mrs in enumerate(setup_ana['MRList'])] )[0]
         self.allmas     = setup_ins['noMR']
         self.xstsubband = data_hdu['xstsubband']
         self.xsttime    = data_hdu['jd']
         self.xstdata    = data_hdu['data']
+        self.dt         = float(self.head['DT'])
+        self.bwidth     = float(self.head['BANDWIDT'].split()[0])*1.e3 # in Hz
+        self.ra, self.dec = altaz2radec(setup_pbe['AZ'][0], setup_pbe['EL'][0], Time(setup_pbe['timestamp'][0]))
+
         return
 
 

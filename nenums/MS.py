@@ -50,27 +50,27 @@ class MS(object):
         antTable(msname=self.msname, miniarrays=self.miniarrays)
 
         emptyMS(msname=self.msname,
-            start='2018-10-20 12:00:00',
-            dt=1,
-            bwidth=195.e3,
+            start=self.xst.xsttime[0],
+            dt=self.xst.dt,
+            bwidth=self.xst.bwidth,
             xstsbbands=self.xstsubband )
 
         addInfos(msname=self.msname,
             xstheader=h)
 
-        addFreq(msname=self.msname, xstsbbands=self.xstsubband )
+        addFreq(msname=self.msname, xstsbbands=self.xst.xstsubband )
 
         addTime(msname=self.msname, xsttime=self.xsttime )
 
-        addDescId(msname=self.msname, xstsbbands=self.xstsubband )
+        addDescId(msname=self.msname, xstsbbands=self.xst.xstsubband )
 
-        addData(msname=self.msname, builtma=self.allmas, xstdata=self.xstdata)
+        addData(msname=self.msname, builtma=self.xst.allmas, xstdata=self.xst.xstdata)
 
         zenithUVW(msname=self.msname)
 
-        rephaseData(msname=self.msname, xsttime=self.xsttime, ra_center=45, dec_center=45)
+        rephaseData(msname=self.msname, xsttime=self.xst.xsttime, ra_center=self.xst.ra, dec_center=self.xst.dec)
 
-        addPointing(msname=self.msname, ra_center=45, dec_center=45)
+        addPointing(msname=self.msname, ra_center=self.xst.ra, dec_center=self.xst.dec)
 
         cleanDir(msname=self.msname)
 

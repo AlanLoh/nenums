@@ -6,12 +6,13 @@
 """
 
 import argparse
-from nenums import XST
+from nenums import MS
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-x', '--xst', type=str, help="XST file", required=True)
+    parser.add_argument('-m', '--msname', type=str, help="Output Measurement Set", required=True)
     args = parser.parse_args()
 
-    xst = XST(xstfile=args.xst)
-    xst.convertMS()
+    ms = MS(xst=args.xst, msname=args.msname)
+    ms.createMS()
