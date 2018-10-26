@@ -665,7 +665,11 @@ def splitMS(msname, remove=False):
         dtable.putcol('SPECTRAL_WINDOW_ID', spwid)
         dtable.flush()
         dtable.close()
+
+        updateHist(msname=output, message='Split from MS {}'.fotmat(msname))
+
         print("\t=== Measurement set {} written. ===".format(output))
+
     mstable.close()
 
     # ------ Remove the MS ------ #
