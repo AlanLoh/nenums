@@ -2,10 +2,9 @@
 
 [![nenums](https://img.shields.io/pypi/v/nenums.svg)](
     https://pypi.python.org/pypi/nenums)
-https://nenufar.obs-nancay.fr/IMG/siteon0.png
 
-![Alt text](./Logo-NenuFAR-noir.svg)
-<img src="./Logo-NenuFAR-noir.svg">
+<!-- ![Alt text](./Logo-NenuFAR-noir.svg) -->
+<img src="./Logo-NenuFAR-noir.svg" width="30%">
 
 **Alan Loh** (LESIA, Paris Observatory), **Julien Girard** (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
 
