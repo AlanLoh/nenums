@@ -4,7 +4,7 @@
     https://pypi.python.org/pypi/nenums)
 
 <!-- ![Alt text](./Logo-NenuFAR-noir.svg) -->
-<img src="./Logo-NenuFAR-noir.svg" width="30%">
+<img src="./Logo-NenuFAR-noir.svg" width="20%" align="center">
 
 **Alan Loh** (LESIA, Paris Observatory), **Julien Girard** (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
 
