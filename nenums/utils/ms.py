@@ -670,7 +670,7 @@ def splitMS(msname, remove=False):
         dtable.flush()
         dtable.close()
 
-        updateHist(msname=output, message='Split from MS {}'.fotmat(msname))
+        updateHist(msname=output, message='Split from MS {}'.format(msname))
 
         print("\t=== Measurement set {} written. ===".format(output))
 
