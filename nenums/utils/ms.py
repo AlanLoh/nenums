@@ -16,18 +16,18 @@ from astropy.time import Time
 try:
     from pyrap.tables import table
 except:
-    print("\n\t=== WARNING ===")
+    print("\n\t=== WARNING: Pyrap module not found ===")
+from distutils.spawn import find_executable
+if find_executable('makems') is None:
+    print("\n\t=== WARNING: makems not found ===")
 
 from .astro import altaz2radec, lightSpeed
 from .progressbar import ProgressBar
-# from astro import altaz2radec, lightSpeed
-# from progressbar import ProgressBar
-
 
 __author__ = 'Alan Loh'
 __copyright__ = 'Copyright 2018, nenums'
 __credits__ = ['Alan Loh']
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 __maintainer__ = 'Alan Loh'
 __email__ = 'alan.loh@obspm.fr'
 __status__ = 'Production'
@@ -59,6 +59,10 @@ def antTable(msname, miniarrays):
         * **miniarrays** : np.ndarray
             Mini-Arrays from a XST file (ext: 1, key: 'noMROn')
     """
+    outpath = os.path.dirname(os.path.abspath(msname))
+    if not os.path.isdir(outpath):
+        os.makedirs(outpath)
+        
     checkAnt(miniarrays=miniarrays)
     tabname = os.path.join( os.path.dirname(msname), 'ANTENNA')
     strmas  = ",".join("'MR{}'".format(i) for i in sorted( np.squeeze(miniarrays)) ) # str list of MAs

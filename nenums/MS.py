@@ -43,6 +43,20 @@ class MS(object):
         return
 
 
+    @property
+    def msname(self):
+        """ Name of the Measurement Set
+        """
+        return self._msname
+    @msname.setter
+    def msname(self, m):
+        outpath = os.path.dirname(os.path.abspath(m))
+        if not os.path.isdir(outpath):
+            os.makedirs(outpath)
+        self._msname = m
+        return
+
+
     # ================================================================= #
     # =========================== Methods ============================= #
     def createMS(self):
