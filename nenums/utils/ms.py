@@ -43,6 +43,7 @@ __all__ = [ 'antTable',
             'addPointing',
             'cleanDir',
             'splitMS',
+            'addCorrected',
             'updateHist']
 
 
@@ -608,6 +609,8 @@ def cleanDir(msname):
         * **msname** : str
             Name of the Measurement Set
     """
+    isMS(msname)
+
     msname = os.path.abspath(msname)
     mspath = os.path.dirname(msname)
     ant_table = os.path.join(mspath, 'ANTENNA')
@@ -634,6 +637,8 @@ def splitMS(msname, remove=False):
         * **remove** : bool, optional
             Remove the Measurement Set once it has correctly been split (default = False)
     """
+    isMS(msname)
+
     mspath = os.path.dirname(msname)
 
     freqt = table( os.path.join(msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
@@ -687,6 +692,29 @@ def splitMS(msname, remove=False):
             except:
                 print("\t=== WARNING: impossible to remove {} ===".format(msname))
         pass
+    return
+
+
+# =================================================================================== #
+# ----------------------------------- updateHist ------------------------------------ #
+# =================================================================================== #
+def addCorrected(msname):
+    """ Copy DATA to CORRECTED_DATA column.
+
+        Parameters
+        ----------
+        * **msname** : str
+            Name of the Measurement Set
+    """
+    isMS(msname)
+
+    mstable = table(msname, readonly=False)
+    data    = mstable.getcol('DATA')
+    mstable.putcol('CORRECTED_DATA', data)
+    mstable.flush()
+    mstable.close()
+
+    updateHist(msname=msname, message='CORRECTED data collumn copied from DATA')
     return
 
 
