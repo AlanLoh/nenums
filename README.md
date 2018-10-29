@@ -1,7 +1,8 @@
 # **nenums**
-[![image]]
-[image]: https://img.shields.io/pypi/v/nenums.svg
-[![image]]: https://pypi.python.org/pypi/nenums
+
+[![nenums](hhttps://img.shields.io/pypi/v/nenums.svg)](
+    https://pypi.python.org/pypi/nenums)
+
 **Alan Loh** (LESIA, Paris Observatory), **Julien Girard** (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
 
 `nenums` is a Python package designed to convert [*NenuFAR*](https://nenufar.obs-nancay.fr) *Cross-correlation Statistics* data (**XST**) to Measurement Sets.
