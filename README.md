@@ -1,6 +1,6 @@
 # **nenums**
 
-[![nenums](hhttps://img.shields.io/pypi/v/nenums.svg)](
+[![nenums](https://img.shields.io/pypi/v/nenums.svg)](
     https://pypi.python.org/pypi/nenums)
 
 **Alan Loh** (LESIA, Paris Observatory), **Julien Girard** (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
