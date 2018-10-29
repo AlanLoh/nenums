@@ -1,12 +1,17 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 
-""" Command line Python3 script to convert a XST file
-    into a Measurement Set 
+""" Command line Python3 script to plot the UV coevrage of a Measurement Set
 """
 
 import argparse
+import os
 import matplotlib.pyplot as plt
+
+try:
+    from pyrap.tables import table
+except:
+    print("\n\t=== WARNING: Pyrap module not found ===")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -16,6 +21,10 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--wavelength', type=int, help="Use wavelength units", default=0, required=False)
     args = parser.parse_args()
 
+    if not os.path.isdir(args.msname):
+        raise IOError("\t=== MS '{}' not found ===".format(args.msname))
+    return
+
     # ------ Read UV ------ #
     mstable = table(args.msname, ack=False, readonly=True)
     if args.select:
@@ -23,9 +32,9 @@ if __name__ == "__main__":
     uvw = mstable.getcol('UVW')
     if args.wavelength:
         # ------ Convert from m to wavelength ------ #
-        spwdataid  = mstable.getcol('DATA_DESC_ID')  # Nvis*Ntimes*Kspw
+        spwdataid  = mstable.getcol('DATA_DESC_ID')
         spwtable   = table(os.path.join(args.msname, 'SPECTRAL_WINDOW'), ack=False, readonly=True)
-        chanfreq   = spwtable.getcol('CHAN_FREQ')   # Nvis*Ntimes*Kspw x Nchan x 4   in Hz
+        chanfreq   = spwtable.getcol('CHAN_FREQ')
         desctable  = table( os.path.join(sargs.msname, 'DATA_DESCRIPTION'), ack=False, readonly=True)
         spwid      = desctable.getcol('SPECTRAL_WINDOW_ID')
         frequency  = np.take(chanfreq, spwid[spwdataid], axis=0)
