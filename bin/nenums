@@ -12,7 +12,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-x', '--xst', type=str, help="XST file", required=True)
     parser.add_argument('-m', '--msname', type=str, help="Output Measurement Set", required=True)
+    parser.add_argument('-t', '--track', type=int, help="Re-phase the data towards a fixed RA/Dec (yes: 1, no: 0)", default=1, required=False)
+    parser.add_argument('-s', '--split', type=int, help="Split the MS by sub-bands (yes: 1, no: 0)", default=1, required=False)
     args = parser.parse_args()
 
-    ms = MS(xst=args.xst, msname=args.msname)
+    ms = MS(xst=args.xst, msname=args.msname, track=args.track, split=args.split)
     ms.createMS()

@@ -5,7 +5,7 @@ from .MS import MS
 from .XST import XST
 
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 __all__ = ['XST', 'MS']
 # __all__.extend(allutils)

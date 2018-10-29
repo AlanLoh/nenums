@@ -128,7 +128,7 @@ def emptyMS(msname, start, dt, bwidth, xstsbbands):
     parset_dict['StepTime']           = {'id': 0, 'val': str(dt)}
     parset_dict['NTimes']             = {'id': 0, 'val': str(xstsbbands.shape[0])}
     parset_dict['VDSPath']            = {'id': 0, 'val': outpath}
-    parset_dict['WriteImagerColumns'] = {'id': 0, 'val': "T"}
+    parset_dict['WriteImagerColumns'] = {'id': 0, 'val': "F"} # dont write the CORRECTED column
     
     # ------ Create a parset from the dictionnary ------# 
     parset = open( os.path.join(outpath, 'makems.cfg'), 'w')

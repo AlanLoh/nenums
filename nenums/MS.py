@@ -26,9 +26,12 @@ __all__ = ['MS']
 
 
 class MS(object):
-    def __init__(self, xst, msname):
+    def __init__(self, xst, msname, track=1, split=1):
         self.xst    = xst
         self.msname = msname
+        # options
+        self.track  = track
+        self.split  = split
     
     # ================================================================= #
     # ======================== Getter / Setter ======================== #
@@ -83,13 +86,15 @@ class MS(object):
 
         zenithUVW(msname=self.msname)
 
-        rephaseData(msname=self.msname, xsttime=self.xst.xsttime, ra_center=self.xst.ra, dec_center=self.xst.dec)
+        if self.track:
+            rephaseData(msname=self.msname, xsttime=self.xst.xsttime, ra_center=self.xst.ra, dec_center=self.xst.dec)
 
-        addPointing(msname=self.msname, ra_center=self.xst.ra, dec_center=self.xst.dec)
+            addPointing(msname=self.msname, ra_center=self.xst.ra, dec_center=self.xst.dec)
 
         cleanDir(msname=self.msname)
 
-        splitMS(msname=self.msname, remove=True)
+        if self.split:
+            splitMS(msname=self.msname, remove=True)
 
         return
 
