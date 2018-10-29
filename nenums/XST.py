@@ -86,7 +86,7 @@ class XST(object):
             data_hdu  = f[7].data
 
         self.miniarrays = np.array( [mrs[0:setup_ana['nbMRUsed'][i]] for i, mrs in enumerate(setup_ana['MRList'])] )[0]
-        self.allmas     = setup_ins['noMR']
+        self.allmas     = np.squeeze(setup_ins['noMR'])
         self.xstsubband = data_hdu['xstsubband']
         self.xsttime    = data_hdu['jd']
         self.xstdata    = data_hdu['data']
