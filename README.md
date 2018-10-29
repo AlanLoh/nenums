@@ -1,5 +1,8 @@
 # **nenums**
-Alan Loh (LESIA, Paris Observatory), Julien Girard (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
+[![image]]
+[image]: https://img.shields.io/pypi/v/nenums.svg
+[![image]]: https://pypi.python.org/pypi/nenums
+**Alan Loh** (LESIA, Paris Observatory), **Julien Girard** (AIM CEA-Saclay, Paris Diderot University) and the *NenuFAR* team
 
 `nenums` is a Python package designed to convert [*NenuFAR*](https://nenufar.obs-nancay.fr) *Cross-correlation Statistics* data (**XST**) to Measurement Sets.
 
@@ -15,6 +18,9 @@ The package is updated with the addition of `--upgrade`.
 * [*astropy*](http://www.astropy.org)
 * [*pyrap*](https://github.com/casacore/python-casacore)
 * [*makems*](https://github.com/ska-sa/makems)
+
+### See also
+The set of radio astronomical software packages [`KERN`](http://kernsuite.info).
 
 ## Usage
 ### Command-line
