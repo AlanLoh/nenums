@@ -4,6 +4,7 @@
 """ Command line Python3 script to plot the UV coevrage of a Measurement Set
 """
 
+import numpy as np
 import argparse
 import os
 import matplotlib.pyplot as plt
@@ -23,7 +24,6 @@ if __name__ == "__main__":
 
     if not os.path.isdir(args.msname):
         raise IOError("\t=== MS '{}' not found ===".format(args.msname))
-    return
 
     # ------ Read UV ------ #
     mstable = table(args.msname, ack=False, readonly=True)
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     ymin, ymax = v.min(), v.max() 
 
     # ------ Make a density plot ------ #
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(8, 7))
     hb = ax.hexbin(u[mask], v[mask], gridsize=400, mincnt=1, bins='log', cmap='Blues', edgecolor='none')
     ax.margins(0) # must have!
     ax.axis([xmin, xmax, ymin, ymax])
