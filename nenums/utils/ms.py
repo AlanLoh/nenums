@@ -14,7 +14,7 @@ import shutil
 
 from astropy.time import Time
 try:
-    from pyrap.tables import table
+    from pyrap.tables import table, addImagingColumns
 except:
     print("\n\t=== WARNING: Pyrap module not found ===")
 from distutils.spawn import find_executable
@@ -710,6 +710,7 @@ def addCorrected(msname):
 
     mstable = table(msname, readonly=False)
     data    = mstable.getcol('DATA')
+    addImagingColumns(msname)
     mstable.putcol('CORRECTED_DATA', data)
     mstable.flush()
     mstable.close()
